@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performer Suite · Visualizador Gaussiano Simplificado</title>
+<style>
+:root {
+  --bg:#0f0f17; --surface:#1a1a28; --surface2:#222235; --border:#2e2e45;
+  --a:#a78bfa; --b:#8b5cf6; --text:#e2e2f0; --muted:#6b6b8a;
+  --success:#34d399; --danger:#f87171; --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;}
+
+/* NAV */
+.nav{background:var(--surface);border-bottom:2px solid var(--a);padding:0 24px;display:flex;align-items:stretch;gap:0;flex-shrink:0;z-index:200;}
+.nav-brand{font-size:1rem;font-weight:800;color:var(--a);letter-spacing:0.05em;padding-right:24px;display:flex;align-items:center;}
+.nav-tab{padding:14px 20px;font-size:0.82rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.15s;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--a);border-bottom-color:var(--a);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.btn{padding:7px 14px;border-radius:6px;border:none;font-size:0.8rem;font-weight:600;cursor:pointer;transition:opacity 0.15s;}
+.btn:hover{opacity:0.85;}
+.btn-primary{background:var(--a);color:#fff;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-outline:hover{border-color:var(--a);color:var(--a);}
+.btn-success{background:var(--success);color:#000;}
+
+/* VIEWS */
+.view{display:none;flex:1;flex-direction:column;min-height:0;overflow-y:auto;}
+.view.active{display:flex;}
+
+/* DROPZONE */
+.dropzone{margin:60px auto;max-width:440px;border:2px dashed var(--border);border-radius:12px;padding:56px 36px;text-align:center;cursor:pointer;transition:border-color 0.2s;}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--a);}
+.dropzone h2{font-size:1.05rem;color:var(--a);margin-bottom:8px;}
+.dropzone p{color:var(--muted);font-size:0.82rem;margin-bottom:18px;}
+
+/* FILTERBAR */
+.filterbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;flex-shrink:0;}
+.filterbar input,.filterbar select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;padding:7px 10px;outline:none;}
+.filterbar input:focus,.filterbar select:focus{border-color:var(--a);}
+.filterbar input[type=text]{width:220px;}
+.filterbar input[type=number]{width:80px;}
+.filter-group{display:flex;align-items:center;gap:6px;}
+.filter-group label{font-size:0.72rem;color:var(--muted);}
+.stat-pill{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;font-size:0.75rem;color:var(--muted);}
+.stat-pill span{color:var(--a);font-weight:700;}
+
+/* TABLA */
+#table-wrap{flex:1;min-height:0;overflow-y:auto;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+thead th{background:var(--surface);color:var(--muted);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:10px;border-bottom:2px solid var(--a);position:sticky;top:0;cursor:pointer;user-select:none;white-space:nowrap;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+thead th:hover{color:var(--text);}
+thead th.sorted-asc::after{content:" ↑";color:var(--a);}
+thead th.sorted-desc::after{content:" ↓";color:var(--a);}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
+tbody tr:hover{background:var(--surface2);}
+td{padding:6px 8px;vertical-align:middle;white-space:nowrap;}
+td.name-cell{max-width:160px;color:var(--text);font-weight:500;}
+.search-menu{position:absolute;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;display:flex;gap:6px;box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+.search-menu a{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;color:var(--text);text-decoration:none;font-size:13px;white-space:nowrap;}
+.search-menu a:hover{background:var(--surface2);color:var(--a);}
+.search-menu img{width:16px;height:16px;display:block;}
+td.tag-cell{color:var(--a);font-weight:600;font-size:0.8rem;}
+tr.modified td{background:#1a1a2e;}
+td[contenteditable]{outline:none;cursor:text;}
+td[contenteditable]:focus{background:var(--surface2);outline:1px solid var(--b);border-radius:3px;}
+.cup-select{background:transparent;border:none;color:var(--text);font-size:0.82rem;cursor:pointer;outline:none;padding:0;width:52px;}
+td.level-cell{text-align:center;}
+.level-badge{display:inline-block;width:22px;height:22px;border-radius:50%;font-size:0.7rem;font-weight:800;line-height:22px;text-align:center;color:#0d0d0f;}
+.pct-bar{display:flex;align-items:center;gap:6px;}
+.pct-num{font-size:0.75rem;color:var(--muted);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
+.pct-track{flex:1;height:4px;background:var(--border);border-radius:99px;overflow:hidden;min-width:40px;}
+.pct-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--b),var(--a));}
+
+/* PAGINATION */
+.pagination-bar{background:var(--surface);border-top:1px solid var(--border);padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;font-size:0.75rem;flex-shrink:0;}
+.pagination-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.pagination-controls button,.pagination-controls select,.pagination-controls input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 8px;font-size:0.75rem;cursor:pointer;}
+.pagination-controls button:disabled{opacity:0.4;cursor:default;}
+.pagination-controls .page-num-input{width:60px;text-align:center;}
+.pagination-controls .rows-select{width:80px;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:1rem;color:var(--a);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+.modal-field{display:flex;flex-direction:column;gap:5px;}
+.modal-field label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;}
+.modal-field input,.modal-field select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.9rem;padding:9px 11px;outline:none;}
+.modal-field input:focus,.modal-field select:focus{border-color:var(--a);}
+.modal-preview{background:var(--surface2);border:1px solid var(--a);border-radius:8px;padding:14px;text-align:center;margin-bottom:18px;}
+.modal-preview .preview-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;}
+.modal-preview .preview-tag{font-size:1.1rem;font-weight:700;color:var(--a);}
+.modal-actions{display:flex;gap:10px;}
+.modal-actions button{flex:1;}
+.modal-error{font-size:0.78rem;color:var(--danger);margin-bottom:10px;display:none;}
+
+/* COMPARE */
+#view-compare{overflow-y:auto;}
+.cmp-wrap{max-width:960px;margin:0 auto;padding:28px 20px;width:100%;}
+.cmp-search-area{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;}
+.cmp-search-title{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px;}
+.cmp-search-row{display:flex;gap:10px;align-items:center;}
+.cmp-search-wrap{position:relative;flex:1;}
+.cmp-search-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.9rem;padding:10px 12px;outline:none;}
+.cmp-search-wrap input:focus{border-color:var(--a);}
+.cmp-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;z-index:100;display:none;}
+.cmp-dropdown.open{display:block;}
+.cmp-drop-item{padding:9px 12px;font-size:0.85rem;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.cmp-drop-item:hover{background:var(--surface);}
+.cmp-drop-item .dtag{font-size:0.72rem;color:var(--muted);}
+.cmp-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.cmp-chip{display:flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:99px;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid;}
+.cmp-chip .chip-x{opacity:0.6;font-size:0.9rem;transition:opacity 0.1s;}
+.cmp-chip:hover .chip-x{opacity:1;}
+.cmp-chip.highlighted{box-shadow:0 0 0 2px currentColor;}
+.no-data-msg{text-align:center;padding:40px;color:var(--muted);font-size:0.9rem;}
+.cmp-result{display:none;}
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+@media(max-width:600px){.cmp-grid{grid-template-columns:1fr;}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;}
+.card-title{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:16px;font-weight:700;}
+#radar-canvas{display:block;margin:0 auto;cursor:pointer;}
+.radar-legend{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px;}
+.radar-leg-item{display:flex;align-items:center;gap:5px;font-size:0.75rem;cursor:pointer;padding:3px 8px;border-radius:99px;border:1px solid transparent;transition:all 0.15s;}
+.radar-leg-item:hover{border-color:currentColor;}
+.radar-leg-item.active{border-color:currentColor;font-weight:700;}
+.radar-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.attr-table-wrap{overflow-x:auto;}
+.attr-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.attr-table th{text-align:center;font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+.attr-table th:first-child{text-align:left;}
+.attr-table td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:center;}
+.attr-table td:first-child{text-align:left;color:var(--muted);font-size:0.75rem;}
+.attr-table tr:last-child td{border-bottom:none;}
+.cell-winner{font-weight:700;}
+.delta-chip{font-size:0.65rem;padding:2px 6px;border-radius:99px;font-weight:700;display:inline-block;white-space:nowrap;}
+
+/* VISUALIZER */
+.visualizer-container{padding:20px 24px;max-width:1000px;margin:0 auto;width:100%;}
+.visualizer-container .section{margin-bottom:28px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+.vis-row{display:flex;gap:20px;flex-wrap:wrap;}
+.vis-sliders{flex:1;min-width:260px;}
+.vis-sliders label{display:block;font-size:0.72rem;color:var(--muted);margin-bottom:3px;margin-top:8px;}
+.vis-sliders input[type=range]{width:100%;margin:0;}
+.vis-sliders input[type=number]{width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 6px;font-size:0.8rem;}
+.vis-preview{flex:1;min-width:300px;display:flex;flex-direction:column;align-items:center;}
+.vis-svg-wrap{position:relative;width:100%;max-width:400px;}
+.vis-tags{text-align:center;margin-top:10px;font-size:0.85rem;color:var(--a);font-weight:600;min-height:24px;}
+.overlay-selectors{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.overlay-selectors .sel-wrap{flex:1;min-width:200px;position:relative;}
+.overlay-selectors input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;padding:8px 10px;}
+.overlay-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;z-index:50;display:none;}
+.overlay-dropdown.open{display:block;}
+.overlay-item{padding:8px 12px;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);}
+.overlay-item:hover{background:var(--surface);}
+.overlay-svg-wrap{position:relative;width:100%;max-width:400px;margin:0 auto;}
+.overlay-svg-wrap svg{width:100%;height:auto;transition:all 0.3s;}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-brand">Performer Suite – Visualizador Simplificado</div>
+  <div class="nav-tab active" id="tab-editor" onclick="switchView('editor')">Editor</div>
+  <div class="nav-tab" id="tab-compare" onclick="switchView('compare')">Compare</div>
+  <div class="nav-tab" id="tab-visualizer" onclick="switchView('visualizer')">Visualizer</div>
+  <div class="nav-right" id="nav-right-editor">
+    <div class="stat-pill">Total: <span id="stat-total">0</span></div>
+    <div class="stat-pill">Shown: <span id="stat-shown">0</span></div>
+    <div class="stat-pill">Modified: <span id="stat-modified">0</span></div>
+    <button class="btn btn-outline" onclick="document.getElementById('file-input').click()">↑ Load CSV</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add</button>
+    <button class="btn btn-success" onclick="exportCSV()">↓ Export</button>
+  </div>
+  <div class="nav-right" id="nav-right-compare" style="display:none"><span style="font-size:0.75rem;color:var(--muted)" id="cmp-count-label"></span></div>
+  <div class="nav-right" id="nav-right-visualizer" style="display:none"><span style="font-size:0.75rem;color:var(--muted)">Silueta por banda (underbust)</span></div>
+</div>
+<input type="file" id="file-input" accept=".csv" onchange="loadFile(this.files[0])">
+
+<!-- EDITOR VIEW -->
+<div class="view active" id="view-editor">
+  <div class="dropzone" id="dropzone" style="display:none"
+    onclick="document.getElementById('file-input').click()"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="handleDrop(event)">
+    <h2>Drop updated CSV here</h2>
+    <p>or click to browse</p>
+    <button class="btn btn-primary" style="padding:9px 20px" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse file</button>
+  </div>
+  <div class="filterbar" id="filterbar" style="display:none">
+    <div class="filter-group"><label>Name</label><input type="text" id="f-name" placeholder="name1, name2, ..." oninput="applyFilters()"></div>
+    <div class="filter-group"><label>Bust</label><select id="f-bust" onchange="applyFilters()"><option value="">All</option><option>Flat</option><option>Small</option><option>Perky</option><option>Average</option><option>Full</option><option>Busty</option><option>Big Tits</option><option>Enormous</option></select></div>
+    <div class="filter-group"><label>Hips</label><select id="f-hip" onchange="applyFilters()"><option value="">All</option><option>Boyish</option><option>Slim</option><option>Lean</option><option>Average</option><option>Curvy</option><option>Bubble Butt</option><option>Thick</option><option>Phat Ass</option></select></div>
+    <div class="filter-group"><label>Height Type</label><select id="f-height-type" onchange="applyFilters()"><option value="">All</option><option>Petite</option><option>Short</option><option>Average</option><option>Tall</option><option>Very Tall</option></select></div>
+    <div class="filter-group"><label>Body Shape</label><select id="f-shape" onchange="applyFilters()"><option value="">All</option><option>Rectangle</option><option>Top-Heavy</option><option>Balanced</option><option>Hourglass</option><option>Pear</option><option>Voluptuous</option></select></div>
+    <div class="filter-group"><label>Modifier</label><select id="f-mod" onchange="applyFilters()"><option value="">All</option><option value="none">None</option><option value="Slim">Slim</option><option value="Average">Average</option><option value="Curvy">Curvy</option><option value="Plus Size">Plus Size</option><option value="BBW">BBW</option></select></div>
+    <div class="filter-group"><label>Height cm</label><input type="number" id="f-h-min" placeholder="min" oninput="applyFilters()"><span style="color:var(--muted)">–</span><input type="number" id="f-h-max" placeholder="max" oninput="applyFilters()"></div>
+    <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+  </div>
+  <div id="table-wrap" style="display:none"><table id="main-table"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div id="pagination-container" style="display:none" class="pagination-bar"><div class="pagination-controls"><span>Filas por página:</span><select id="rows-per-page" class="rows-select" onchange="changeRowsPerPage()"><option value="10">10</option><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="-1">Todas</option></select></div><div class="pagination-controls"><button id="first-page" onclick="goToPage(1)">«</button><button id="prev-page" onclick="goToPage(currentPage-1)">‹</button><span>Página</span><input type="number" id="page-input" class="page-num-input" min="1" value="1" onchange="goToPage(parseInt(this.value))"><span id="total-pages-label">de 1</span><button id="next-page" onclick="goToPage(currentPage+1)">›</button><button id="last-page" onclick="goToPage(totalPages)">»</button></div></div>
+</div>
+
+<!-- COMPARE VIEW -->
+<div class="view" id="view-compare"><div class="cmp-wrap"><div class="no-data-msg" id="cmp-no-data">Load a CSV in the Editor tab first.</div><div id="cmp-main" style="display:none"><div class="cmp-search-area"><div class="cmp-search-title">Add performers to compare</div><div class="cmp-search-row"><div class="cmp-search-wrap"><input type="text" id="cmp-input" placeholder="Search by name and click to add..." oninput="cmpFilter()" onblur="setTimeout(()=>cmpDropClose(),200)" onfocus="cmpFilter()"><div class="cmp-dropdown" id="cmp-dropdown"></div></div></div><div class="cmp-chips" id="cmp-chips"></div></div><div class="cmp-result" id="cmp-result"><div class="cmp-grid"><div class="card"><div class="card-title">Visual Profile — click a name to highlight</div><canvas id="radar-canvas" width="300" height="300"></canvas><div class="radar-legend" id="radar-legend"></div></div><div class="card"><div class="card-title">Attribute Bars</div><div id="attr-bars"></div></div></div><div class="card"><div class="card-title">Full Comparison</div><div class="attr-table-wrap"><table class="attr-table" id="attr-table"><thead id="attr-thead"></thead><tbody id="attr-tbody"></tbody></table></div></div></div></div></div></div>
+
+<!-- VISUALIZER VIEW (usa banda en vez de busto completo) -->
+<div class="view" id="view-visualizer">
+  <div class="visualizer-container">
+    <div class="section"><div class="card-title">Single Simulation (underbust band)</div>
+      <div class="vis-row">
+        <div class="vis-sliders">
+          <label>Height (cm) <span id="sim-height-val" style="color:var(--a)">165</span></label>
+          <input type="range" id="sim-height" min="140" max="200" step="1" value="165" oninput="updateSimulation()">
+          <label>Underbust band (in) <span id="sim-band-val" style="color:var(--a)">32.0</span></label>
+          <input type="range" id="sim-band" min="26" max="48" step="0.5" value="32" oninput="updateSimulation()">
+          <label>Waist (in) <span id="sim-waist-val" style="color:var(--a)">26.0</span></label>
+          <input type="range" id="sim-waist" min="20" max="100" step="0.5" value="26" oninput="updateSimulation()">
+          <label>Hips (in) <span id="sim-hips-val" style="color:var(--a)">38.0</span></label>
+          <input type="range" id="sim-hips" min="20" max="100" step="0.5" value="38" oninput="updateSimulation()">
+          <div><button class="btn btn-outline" onclick="loadRandomSim()">Random</button><button class="btn btn-outline" onclick="loadFromDatasetSim()">Load from Dataset</button></div>
+        </div>
+        <div class="vis-preview"><canvas id="sim-canvas" width="400" height="560" style="width:400px; height:560px; background:#0b0b12; border-radius:16px; border:1px solid #2e2e45;"></canvas><div class="vis-tags" id="sim-tags">—</div></div>
+      </div>
+    </div>
+    <div class="section"><div class="card-title">Overlay Comparison (click name to highlight)</div>
+      <div class="overlay-selectors">
+        <div class="sel-wrap"><input type="text" id="overlay-search-a" placeholder="Performer A..." oninput="overlaySearch('a')" onfocus="overlaySearch('a')"><div class="overlay-dropdown" id="overlay-dropdown-a"></div></div>
+        <div class="sel-wrap"><input type="text" id="overlay-search-b" placeholder="Performer B..." oninput="overlaySearch('b')" onfocus="overlaySearch('b')"><div class="overlay-dropdown" id="overlay-dropdown-b"></div></div>
+      </div>
+      <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+        <canvas id="overlay-canvas" width="400" height="560" style="width:400px; height:560px; background:#0b0b12; border-radius:16px; border:1px solid #2e2e45;"></canvas>
+        <div style="flex:1; min-width:180px;">
+          <div id="overlay-tags" style="font-size:0.82rem; line-height:1.6; margin-bottom:12px;"></div>
+          <button class="btn btn-outline" onclick="clearOverlay()" style="margin-top:4px;">Clear selections</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-modal"><div class="modal"><h2>Add Performer</h2><div class="modal-grid"><div class="modal-field" style="grid-column:1/-1"><label>Name</label><input type="text" id="m-name" placeholder="Performer name"></div><div class="modal-field"><label>Height (cm)</label><input type="number" id="m-height" placeholder="e.g. 165" oninput="previewTag()"></div><div class="modal-field"><label>Weight (kg)</label><input type="number" id="m-weight" placeholder="e.g. 52" oninput="previewTag()"></div><div class="modal-field"><label>Bra Band (in)</label><input type="number" id="m-band" placeholder="e.g. 32" oninput="previewTag()"></div><div class="modal-field"><label>Bra Cup</label><select id="m-cup" onchange="previewTag()"><option value="">Select...</option><option>AA</option><option>A</option><option>B</option><option>C</option><option>D</option><option>DD</option><option>DDD</option><option>F</option><option>FF</option><option>G</option><option>GG</option><option>H</option><option>HH</option><option>I</option><option>J</option><option>JJ</option><option>K</option><option>KK</option><option>L</option></select></div><div class="modal-field"><label>Waist (in)</label><input type="number" id="m-waist" placeholder="e.g. 24" oninput="previewTag()"></div><div class="modal-field"><label>Hips (in)</label><input type="number" id="m-hips" placeholder="e.g. 36" oninput="previewTag()"></div><div class="modal-field"><label>Bust circ. (in) — optional</label><input type="number" id="m-bust" placeholder="e.g. 37"></div></div><div class="modal-preview"><div class="preview-label">Classification preview</div><div class="preview-tag" id="m-preview">—</div></div><div class="modal-error" id="m-error"></div><div class="modal-actions"><button class="btn btn-outline" onclick="closeAddModal()">Cancel</button><button class="btn btn-primary" onclick="addPerformer()">Add to dataset</button></div></div></div>
+
+<script>
+// ========== CLASIFICADOR Y DATOS ==========
+const EMBEDDED_DATA = [
+  {"name": "Angela White", "height_cm": 160, "weight_kg": 55, "bra": "42G", "bust_in": 51.0, "waist_in": 27.0, "hips_in": 41.0},
+  {"name": "Little Caprice", "height_cm": 168, "weight_kg": 48, "bra": "32B", "bust_in": 34.0, "waist_in": 25.0, "hips_in": 34.0},
+  {"name": "Mia Malkova", "height_cm": 171, "weight_kg": 54, "bra": "34C", "bust_in": 37.0, "waist_in": 26.0, "hips_in": 36.0},
+  {"name": "Alexis Texas", "height_cm": 173, "weight_kg": 64, "bra": "34C", "bust_in": 37.0, "waist_in": 27.0, "hips_in": 40.0},
+  {"name": "Hitomi Tanaka", "height_cm": 156, "weight_kg": 47, "bra": "46JJ", "bust_in": 60.0, "waist_in": 24.0, "hips_in": 34.0},
+  {"name": "Kenzie Reeves", "height_cm": 147, "weight_kg": 41, "bra": "32B", "bust_in": 34.0, "waist_in": 22.0, "hips_in": 30.0},
+  {"name": "Sara Jay", "height_cm": 163, "weight_kg": 66, "bra": "36E", "bust_in": 42.0, "waist_in": 25.0, "hips_in": 41.0},
+  {"name": "Riley Reid", "height_cm": 160, "weight_kg": 48, "bra": "32A", "bust_in": 33.0, "waist_in": 26.0, "hips_in": 36.0},
+  {"name": "Carmella Bing", "height_cm": 178, "weight_kg": 60, "bra": "38H", "bust_in": 49.0, "waist_in": 26.0, "hips_in": 36.0},
+  {"name": "Dolly Little", "height_cm": 145, "weight_kg": 38, "bra": "28A", "bust_in": 29.0, "waist_in": 22.0, "hips_in": 32.0}
+];
+
+const BUST_CUTS=[1.5924,3.0303,4.2135,4.8701,6.25,8.6705,13.3929];
+const HIP_PCTS={
+  "140-150":{p10:30,p25:32,p40:34,p60:34,p75:35,p90:36,p97:37.42},
+  "150-155":{p10:32,p25:33,p40:34,p60:34,p75:36,p90:37,p97:39},
+  "155-160":{p10:32,p25:34,p40:34,p60:35,p75:36,p90:38,p97:40},
+  "160-165":{p10:32,p25:34,p40:34,p60:36,p75:36,p90:38,p97:40},
+  "165-170":{p10:33,p25:34,p40:35,p60:36,p75:36,p90:38,p97:41},
+  "170-175":{p10:33.2,p25:34,p40:35,p60:36,p75:37,p90:38,p97:42},
+  "175-180":{p10:33,p25:34,p40:35.8,p60:36,p75:37,p90:39,p97:41.9},
+  "180+":   {p10:32.4,p25:34,p40:35,p60:37,p75:38,p90:39.8,p97:48.8}
+};
+const CUP_CM={AA:1.25,A:2.5,B:5,C:7.5,D:10,DD:12.5,DDD:15,E:17.5,F:17.5,FF:20,G:22.5,GG:25,H:27.5,HH:30,I:32.5,II:35,J:37.5,JJ:40,K:42.5,KK:45,L:47.5};
+const CUPS=['AA','A','B','C','D','DD','DDD','F','FF','G','GG','H','HH','I','J','JJ','K','KK','L'];
+const BUST_TAGS=['Flat','Small','Perky','Average','Full','Busty','Big Tits','Enormous'];
+const HIP_TAGS=['Boyish','Slim','Lean','Average','Curvy','Bubble Butt','Thick','Phat Ass'];
+const LEVEL_COLORS=['#6b7280','#9ca3af','#a78bfa','#60a5fa','#34d399','#fbbf24','#f97316','#ef4444'];
+const CMP_PALETTE=['#c8a96e','#9b6fd4','#4ec97b','#e07070','#60a5fa','#f97316','#f472b6','#34d399'];
+
+function heightGroup(h){
+  if(h<150)return"140-150";if(h<155)return"150-155";if(h<160)return"155-160";
+  if(h<165)return"160-165";if(h<170)return"165-170";if(h<175)return"170-175";
+  if(h<180)return"175-180";return"180+";
+}
+function clamp(n,min,max){return Math.min(max,Math.max(min,n));}
+function levelFromPct(p){const t=[.10,.25,.40,.60,.75,.90,.97];for(let i=0;i<t.length;i++)if(p<t[i])return i+1;return 8;}
+function levelFromDisplayPct(pct){const safe=clamp(parseFloat(pct)||0,1,99);return clamp(Math.ceil(safe/12.5),1,8);}
+function hipPctile(hips,group){
+  const p=HIP_PCTS[group];if(!p)return 0.5;
+  const cuts=[p.p10,p.p25,p.p40,p.p60,p.p75,p.p90,p.p97];
+  const vals=[.05,.175,.325,.50,.675,.825,.935,.985];
+  for(let i=0;i<cuts.length;i++)if(hips<cuts[i])return vals[i];return vals[7];
+}
+function parseBraFull(bra){
+  const m=String(bra).toUpperCase().trim().match(/^(\d+)([A-Z]+)$/);
+  if(!m)return{band:null,cup:null,cup_cm:null};
+  return{band:parseInt(m[1]),cup:m[2],cup_cm:CUP_CM[m[2]]||null};
+}
+function estimateBustFromBra(bra){
+  const parsed=parseBraFull(bra);
+  if(!parsed.band||!parsed.cup_cm)return null;
+  return Math.round((parsed.band+(parsed.cup_cm/2.54))*10)/10;
+}
+function getBustMetrics(height,bra,bust){
+  const h=parseFloat(height);
+  const bustMeasured=parseFloat(bust);
+  const parsed=parseBraFull(bra);
+  const bustEstimated=estimateBustFromBra(bra);
+  const bustValue=bustMeasured>0?bustMeasured:bustEstimated;
+  if(!h||!bustValue)return{valid:false};
+  const heightIn=h/2.54;
+  const bustScale=bustValue/heightIn;
+  const bustScalePct=clamp(Math.round(((bustScale-0.50)/0.18)*100),1,99);
+  let projPct=bustScalePct;
+  if(parsed.band&&parsed.cup_cm){
+    const cupIn=parsed.cup_cm/2.54;
+    const projectionRatio=cupIn/parsed.band;
+    projPct=clamp(Math.round(((projectionRatio-0.04)/0.16)*100),1,99);
+  }
+  const bustPct=clamp(Math.round((bustScalePct*0.6)+(projPct*0.4)),1,99);
+  return{valid:true,bustValue:Math.round(bustValue*10)/10,bustPct,bustLevel:levelFromDisplayPct(bustPct),bustScalePct,projPct,source:bustMeasured>0?'bust_in':'bra',braBand:parsed.band,braCup:parsed.cup};
+}
+function getHeightTag(h){if(h<=154)return'Petite';if(h<=160)return'Short';if(h<=168)return'Average';if(h<=175)return'Tall';return'Very Tall';}
+function getBodyShape(bust,hips,waist){
+  const bs=parseFloat(bust),hp=parseFloat(hips),ws=parseFloat(waist);
+  if(!bs||!hp||!ws||hp<=ws)return'—';
+  const bustToWaist=bs/ws, hipsToWaist=hp/ws, bustHipDiff=bs-hp;
+  if(bustToWaist>=1.38&&hipsToWaist>=1.38&&Math.abs(bustHipDiff)<=2.5)return'Hourglass';
+  if(hipsToWaist>=1.38&&bustHipDiff<=-2)return'Pear';
+  if(bustToWaist>=1.38&&bustHipDiff>=2)return'Top-Heavy';
+  if(bustToWaist<1.28&&hipsToWaist<1.28)return'Rectangle';
+  if(hipsToWaist>=1.32||bustToWaist>=1.32)return'Voluptuous';
+  return'Balanced';
+}
+function classify(height,weight,bra,bust,waist,hips){
+  const h=parseFloat(height),w=parseFloat(weight),ws=parseFloat(waist),hp=parseFloat(hips);
+  const bustMetrics=getBustMetrics(h,bra,bust);
+  if(!h||!w||!ws||!hp||hp<=ws||!bustMetrics.valid) return {bustLevel:0,bustTag:'—',bustPct:0,hipLevel:0,hipTag:'—',hipPct:0,modifier:'',heightTag:'—',shape:'—',tag:'Invalid data'};
+  const bustLevel=bustMetrics.bustLevel, bustPct=bustMetrics.bustPct, group=heightGroup(h);
+  const hipPctRaw=hipPctile(hp,group), hipLevel=levelFromPct(hipPctRaw), hipPct=Math.min(99,Math.max(1,Math.round(hipPctRaw*100)));
+  const bmi=w/((h/100)**2);
+  let modifier=''; if(bmi<20)modifier='Slim'; else if(bmi<25)modifier='Average'; else if(bmi<30)modifier='Curvy'; else if(bmi<38)modifier='Plus Size'; else modifier='BBW';
+  const bustTag=BUST_TAGS[bustLevel-1], hipTag=HIP_TAGS[hipLevel-1], heightTag=getHeightTag(h), shape=getBodyShape(bustMetrics.bustValue,hp,ws);
+  const base=bustPct>=hipPct?`${bustTag} · ${hipTag}`:`${hipTag} · ${bustTag}`;
+  const tag=modifier?`${base} · ${modifier}`:base;
+  return{bustLevel,bustTag,bustPct,hipLevel,hipTag,hipPct,modifier,heightTag,shape,tag, bmi:Math.round(bmi*10)/10,whr:Math.round((ws/hp)*100)/100, whrPct:Math.min(99,Math.max(1,Math.round(((0.85-(ws/hp))/0.20)*100))), height:h,weight:w,waist:ws,hips:hp,bust:bustMetrics.bustValue, bustSource:bustMetrics.source,bustScalePct:bustMetrics.bustScalePct,projPct:bustMetrics.projPct};
+}
+function computeHipRatio(row){
+  const h=parseFloat(row.height_cm), hip=parseFloat(row.hips_in);
+  if(!h||!hip||isNaN(h)||isNaN(hip)) return null;
+  const group=heightGroup(h);
+  const p=HIP_PCTS[group]; if(!p) return null;
+  const known=[
+    [0,0],[p.p10,0.10],[p.p25,0.25],[p.p40,0.40],
+    [p.p60,0.60],[p.p75,0.75],[p.p90,0.90],[p.p97,0.97],[p.p97+10,0.999]
+  ];
+  for(let i=0;i<known.length-1;i++){
+    const [x0,y0]=known[i],[x1,y1]=known[i+1];
+    if(hip>=x0 && hip<x1) return x1===x0?y0:parseFloat((y0+(y1-y0)*(hip-x0)/(x1-x0)).toFixed(5));
+  }
+  return 0.999;
+}
+
+// ========== ESTADO GLOBAL ==========
+let rows=[], filteredIdx=[], modifiedSet=new Set(), sortCol=null, sortDir=1;
+let currentPage=1, rowsPerPage=50;
+let cmpSelected=[], radarHighlight=null;
+let overlaySelectedA=null, overlaySelectedB=null, overlayHighlight=null;
+
+// ========== FUNCIONES DE PAGINACIÓN Y NAVEGACIÓN ==========
+function getTotalPages() { if (rowsPerPage <= 0) return 1; return Math.ceil(filteredIdx.length / rowsPerPage); }
+function renderPagination() {
+  const totalPages = getTotalPages();
+  if (totalPages === 0 || filteredIdx.length===0) { document.getElementById('pagination-container').style.display = 'none'; return; }
+  document.getElementById('pagination-container').style.display = 'flex';
+  document.getElementById('total-pages-label').innerText = `de ${totalPages}`;
+  const pageInput = document.getElementById('page-input');
+  pageInput.value = currentPage; pageInput.max = totalPages;
+  document.getElementById('first-page').disabled = (currentPage === 1);
+  document.getElementById('prev-page').disabled = (currentPage === 1);
+  document.getElementById('next-page').disabled = (currentPage === totalPages);
+  document.getElementById('last-page').disabled = (currentPage === totalPages);
+}
+function goToPage(page) { const tp=getTotalPages(); if(page<1)page=1; if(page>tp)page=tp; if(page===currentPage)return; currentPage=page; renderRows(); renderPagination(); }
+function changeRowsPerPage() { const sel=document.getElementById('rows-per-page'); rowsPerPage = (sel.value==='-1') ? Number.MAX_SAFE_INTEGER : parseInt(sel.value); currentPage=1; renderRows(); renderPagination(); }
+function switchView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById(`view-${v}`).classList.add('active');
+  document.getElementById(`tab-${v}`).classList.add('active');
+  document.getElementById('nav-right-editor').style.display=v==='editor'?'flex':'none';
+  document.getElementById('nav-right-compare').style.display=v==='compare'?'flex':'none';
+  document.getElementById('nav-right-visualizer').style.display=v==='visualizer'?'flex':'none';
+  if(v==='compare') initCompareView();
+  if(v==='visualizer') initVisualizerView();
+}
+
+// ========== CARGA DE DATOS ==========
+function parseCSV(text){
+  const rows=[];let row=[],cell='',inQ=false;
+  const normalized=String(text||'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<normalized.length;i++){
+    const ch=normalized[i];
+    if(ch=='"'){ if(inQ&&normalized[i+1]=='"'){cell+='"';i++;} else inQ=!inQ; }
+    else if(ch===','&&!inQ){ row.push(cell);cell=''; }
+    else if(ch==='\n'&&!inQ){ row.push(cell);rows.push(row);row=[];cell=''; }
+    else cell+=ch;
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  const cleanRows=rows.filter(r=>r.some(v=>String(v).trim()!==''));
+  if(cleanRows.length===0)return[];
+  const headers=cleanRows[0].map(h=>String(h).trim().replace(/^"|"$/g,''));
+  return cleanRows.slice(1).map(vals=>{ const obj={}; headers.forEach((h,i)=>obj[h]=String(vals[i]??'').trim().replace(/^"|"$/g,'')); return obj; }).filter(r=>r.name);
+}
+function loadFile(f){ if(!f)return; const r=new FileReader(); r.onload=e=>processCSV(e.target.result); r.readAsText(f); }
+function handleDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('drag-over');loadFile(e.dataTransfer.files[0]);}
+function processCSV(text){ setTimeout(()=>{ const parsed=parseCSV(text); initRows(parsed); },50); }
+function initFromEmbedded(){ initRows(EMBEDDED_DATA); }
+
+function initRows(parsed){
+  rows=parsed.map((r,i)=>{
+    const c=classify(r.height_cm,r.weight_kg,r.bra,r.bust_in,r.waist_in,r.hips_in);
+    const hr=computeHipRatio(r);
+    return{...r,_id:i,_bustLevel:c.bustLevel,_bustTag:c.bustTag,_bustPct:c.bustPct,_hipLevel:c.hipLevel,_hipTag:c.hipTag,_hipPct:c.hipPct,_modifier:c.modifier,_heightTag:c.heightTag,_shape:c.shape,_tag:c.tag,_hipRatio: hr!==null?parseFloat(hr.toFixed(5)):null};
+  });
+  modifiedSet.clear();
+  buildTableHeaders();
+  document.getElementById('dropzone').style.display='none';
+  document.getElementById('table-wrap').style.display='block';
+  document.getElementById('filterbar').style.display='flex';
+  applyFilters();
+}
+
+// ========== TABLA (EDITOR) ==========
+const COLS=[
+  {key:'name',label:'Name',editable:true,type:'text'},{key:'height_cm',label:'Height cm',editable:true,type:'num'},{key:'weight_kg',label:'Weight kg',editable:true,type:'num'},{key:'bra',label:'Bra',editable:true,type:'bra'},
+  {key:'bust_in',label:'Bust "',editable:true,type:'num'},{key:'waist_in',label:'Waist "',editable:true,type:'num'},{key:'hips_in',label:'Hips "',editable:true,type:'num'},
+  {key:'_bustLevel',label:'B.Lvl',editable:false,type:'level'},{key:'_bustTag',label:'Bust',editable:false,type:'tag'},
+  {key:'_bustPct',label:'Bust %',editable:false,type:'pct'},{key:'_hipLevel',label:'H.Lvl',editable:false,type:'level'},{key:'_hipTag',label:'Hips',editable:false,type:'tag'},
+  {key:'_hipPct',label:'Hips %',editable:false,type:'pct'},{key:'_hipRatio',label:'Hip Score',editable:false,type:'ratio'},  // ← ahora acá
+  {key:'_heightTag',label:'Height',editable:false,type:'tag'},{key:'_shape',label:'Shape',editable:false,type:'tag'},
+  {key:'_modifier',label:'Modifier',editable:false,type:'text'},{key:'_tag',label:'Full TAG',editable:false,type:'fulltag'},
+];
+function buildTableHeaders(){
+  const thead=document.getElementById('thead');thead.innerHTML='';
+  const tr=document.createElement('tr');
+  COLS.forEach((col,ci)=>{ const th=document.createElement('th');th.textContent=col.label; th.onclick=()=>sortBy(ci,col.key); tr.appendChild(th); });
+  thead.appendChild(tr);
+}
+function applyCurrentSort(){
+  if(!sortCol)return;
+  filteredIdx.sort((a,b)=>{ let va=rows[a][sortCol]??'',vb=rows[b][sortCol]??''; if(!isNaN(va)&&!isNaN(vb)){va=parseFloat(va);vb=parseFloat(vb);} return va<vb?-1*sortDir:va>vb?1*sortDir:0; });
+}
+function renderRows(){
+  const tbody=document.getElementById('tbody');tbody.innerHTML='';
+  const start=(currentPage-1)*rowsPerPage, end=Math.min(start+rowsPerPage, filteredIdx.length);
+  const pageRows=filteredIdx.slice(start,end);
+  pageRows.forEach(ri=>{
+    const row=rows[ri]; const tr=document.createElement('tr');
+    if(modifiedSet.has(ri))tr.classList.add('modified');
+    COLS.forEach(col=>{
+      const td=document.createElement('td'); const val=row[col.key]??'';
+      if(col.type==='fulltag'){ td.className='tag-cell'; td.textContent=val; }
+      else if(col.type==='pct'){
+        td.style.cssText='text-align:center;';
+        if(val!==undefined&&val!==''){
+          const pct=parseInt(val); const wrap=document.createElement('div');wrap.className='pct-bar';
+          const num=document.createElement('span');num.className='pct-num';num.textContent=pct+'%';
+          const track=document.createElement('div');track.className='pct-track';
+          const fill=document.createElement('div');fill.className='pct-fill';fill.style.width=pct+'%';
+          track.appendChild(fill);wrap.appendChild(num);wrap.appendChild(track);td.appendChild(wrap);
+        }
+      } else if(col.type==='level'){
+        td.className='level-cell';
+        if(val>0){ const badge=document.createElement('span');badge.className='level-badge'; badge.style.background=LEVEL_COLORS[val-1];badge.textContent=val;td.appendChild(badge); }
+      } else if(col.type==='ratio'){
+        td.className='num-cell'; td.textContent = (val !== null && !isNaN(val)) ? val.toFixed(4) : '—';
+      } else if(col.type==='bra'&&col.editable){
+        const parsed=parseBraFull(row.bra||'');
+        const bandSpan=document.createElement('span'); bandSpan.contentEditable=true; bandSpan.textContent=parsed.band||''; bandSpan.style.cssText='outline:none;min-width:24px;display:inline-block;';
+        const cupSel=document.createElement('select');cupSel.className='cup-select';
+        CUPS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;if(c===parsed.cup)o.selected=true;cupSel.appendChild(o);});
+        bandSpan.onblur=()=>onBraChange(ri,bandSpan,cupSel); cupSel.onchange=()=>onBraChange(ri,bandSpan,cupSel);
+        td.appendChild(bandSpan); td.appendChild(cupSel);
+      } else if(col.editable){
+        if(col.key==='name'){
+          td.className='name-cell'; td.style.cssText='position:relative;display:flex;align-items:center;gap:4px;overflow:visible;';
+          const nameSpan=document.createElement('span'); nameSpan.contentEditable=true; nameSpan.textContent=val; nameSpan.style.cssText='flex:1;outline:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;';
+          nameSpan.onblur=()=>onCellEdit(ri,col.key,nameSpan.textContent.trim());
+          const searchBtn=document.createElement('button'); searchBtn.textContent='⋯'; searchBtn.title='Buscar'; searchBtn.style.cssText='background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;padding:1px 5px;flex-shrink:0;line-height:1;border-radius:4px;';
+          searchBtn.onmouseenter=()=>{searchBtn.style.color='var(--a)';searchBtn.style.background='var(--surface2)';};
+          searchBtn.onmouseleave=()=>{searchBtn.style.color='var(--muted)';searchBtn.style.background='none';};
+          searchBtn.onclick=(e)=>{ e.stopPropagation(); closeSearchMenus(); const name=nameSpan.textContent.trim(); const enc=encodeURIComponent(name); const encPlus=enc.replace(/%20/g,'+'); const menu=document.createElement('div'); menu.className='search-menu'; const dbs=[ {label:'FreeOnes',url:'https://www.freeones.com/search?q='+encPlus+'&type=babes',icon:'https://www.google.com/s2/favicons?domain=www.freeones.com&sz=32'}, {label:'Babepedia',url:'https://www.babepedia.com/search/'+encPlus,icon:'https://www.google.com/s2/favicons?domain=www.babepedia.com&sz=32'}, {label:'IAFD',url:'https://www.iafd.com/results.asp?searchtype=comprehensive&searchstring='+encPlus,icon:'https://www.google.com/s2/favicons?domain=www.iafd.com&sz=32'}, {label:'TheNude',url:'https://www.thenude.com/index.php?page=search&action=searchModels&__form_name=navbar-search&m_aka=on&m_name='+encPlus,icon:'https://www.google.com/s2/favicons?domain=www.thenude.com&sz=32'}, {label:'IMDb',url:'https://www.imdb.com/find/?q='+encPlus,icon:'https://www.google.com/s2/favicons?domain=www.imdb.com&sz=32'} ]; dbs.forEach(db=>{ const a=document.createElement('a'); a.href=db.url;a.target='_blank'; const img=document.createElement('img'); img.src=db.icon; img.alt=db.label; a.appendChild(img); menu.appendChild(a); }); document.body.appendChild(menu); const rect=searchBtn.getBoundingClientRect(); menu.style.top=(rect.bottom+window.scrollY+4)+'px'; menu.style.left=(rect.left+window.scrollX)+'px'; setTimeout(()=>{document.addEventListener('click',closeSearchMenus,{once:true});},0); };
+          td.appendChild(nameSpan); td.appendChild(searchBtn);
+        } else {
+          td.contentEditable=true; td.textContent=val; td.onblur=()=>onCellEdit(ri,col.key,td.textContent.trim());
+        }
+      } else { td.textContent=val; }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  updateStats();
+}
+function onCellEdit(ri,key,val){ rows[ri][key]=val; modifiedSet.add(ri); recalcRow(ri); applyFilters(); }
+function onBraChange(ri,bandSpan,cupSel){ const newBra=`${bandSpan.textContent.trim()}${cupSel.value}`; rows[ri].bra=newBra; const eb=estimateBustFromBra(newBra); if(eb!==null) rows[ri].bust_in=String(eb); modifiedSet.add(ri); recalcRow(ri); applyFilters(); }
+function recalcRow(ri){
+  const r=rows[ri]; const c=classify(r.height_cm,r.weight_kg,r.bra,r.bust_in,r.waist_in,r.hips_in);
+  Object.assign(rows[ri],{_bustLevel:c.bustLevel,_bustTag:c.bustTag,_bustPct:c.bustPct,_hipLevel:c.hipLevel,_hipTag:c.hipTag,_hipPct:c.hipPct,_modifier:c.modifier,_heightTag:c.heightTag,_shape:c.shape,_tag:c.tag});
+  const ratio=computeHipRatio(r); rows[ri]._hipRatio=ratio!==null?parseFloat(ratio.toFixed(5)):null;
+}
+function sortBy(colIdx,key){
+  const ths=document.querySelectorAll('thead th'); ths.forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+  if(sortCol===key)sortDir*=-1; else{sortCol=key;sortDir=1;}
+  ths[colIdx].classList.add(sortDir===1?'sorted-asc':'sorted-desc');
+  applyCurrentSort(); currentPage=1; renderRows(); renderPagination();
+}
+function applyFilters(){
+  const names=(document.getElementById('f-name').value||'').split(',').map(n=>n.trim().toLowerCase()).filter(n=>n);
+  const bust=document.getElementById('f-bust').value, hip=document.getElementById('f-hip').value, mod=document.getElementById('f-mod').value, ht=document.getElementById('f-height-type').value, sh=document.getElementById('f-shape').value;
+  const hMin=parseFloat(document.getElementById('f-h-min').value)||0, hMax=parseFloat(document.getElementById('f-h-max').value)||999;
+  filteredIdx=rows.map((_,i)=>i).filter(i=>{
+    const r=rows[i];
+    if(names.length>0&&!names.some(n=>String(r.name||'').toLowerCase().includes(n)))return false;
+    if(bust&&r._bustTag!==bust)return false; if(hip&&r._hipTag!==hip)return false; if(ht&&r._heightTag!==ht)return false;
+    if(sh&&r._shape!==sh)return false; if(mod==='none'&&r._modifier!=='')return false; if(mod&&mod!=='none'&&r._modifier!==mod)return false;
+    const h=parseFloat(r.height_cm)||0; if(h<hMin||h>hMax)return false;
+    return true;
+  });
+  applyCurrentSort(); currentPage=1; renderRows(); renderPagination();
+}
+function clearFilters(){ ['f-name','f-h-min','f-h-max'].forEach(id=>document.getElementById(id).value=''); ['f-bust','f-hip','f-mod','f-height-type','f-shape'].forEach(id=>document.getElementById(id).value=''); applyFilters(); }
+function updateStats(){ document.getElementById('stat-total').textContent=rows.length; document.getElementById('stat-shown').textContent=filteredIdx.length; document.getElementById('stat-modified').textContent=modifiedSet.size; }
+function exportCSV(){
+  const exportCols=['name','height_cm','weight_kg','bra','bust_in','waist_in','hips_in','_hipRatio','bust_level','bust_tag','bust_pct','hip_level','hip_tag','hip_pct','height_tag','shape','modifier','TAG'];
+  const header=exportCols.join(',');
+  const lines=rows.map(r=>exportCols.map(k=>{
+    let v; if(k==='bust_level')v=r._bustLevel; else if(k==='bust_tag')v=r._bustTag; else if(k==='bust_pct')v=r._bustPct; else if(k==='hip_level')v=r._hipLevel; else if(k==='hip_tag')v=r._hipTag; else if(k==='hip_pct')v=r._hipPct; else if(k==='modifier')v=r._modifier; else if(k==='height_tag')v=r._heightTag; else if(k==='shape')v=r._shape; else if(k==='TAG')v=r._tag; else if(k==='_hipRatio')v=r._hipRatio; else v=r[k]??'';
+    const s=String(v); return s.includes(',')||s.includes('"')?`"${s.replace(/"/g,'""')}"`:s;
+  }).join(','));
+  const blob=new Blob([[header,...lines].join('\n')],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='performers_edited.csv'; a.click();
+}
+function closeSearchMenus(){ document.querySelectorAll('.search-menu').forEach(m=>m.remove()); }
+
+// ========== MODAL AGREGAR ==========
+function openAddModal(){
+  ['m-name','m-height','m-weight','m-band','m-waist','m-hips','m-bust'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-cup').value=''; document.getElementById('m-preview').textContent='—'; document.getElementById('m-error').style.display='none';
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal(){ document.getElementById('add-modal').classList.remove('open'); }
+function previewTag(){
+  const h=document.getElementById('m-height').value,w=document.getElementById('m-weight').value,band=document.getElementById('m-band').value,cup=document.getElementById('m-cup').value,bust=document.getElementById('m-bust').value,waist=document.getElementById('m-waist').value,hips=document.getElementById('m-hips').value;
+  if(h&&w&&(bust||(band&&cup))&&waist&&hips){ const c=classify(h,w,`${band}${cup}`,bust,waist,hips); document.getElementById('m-preview').textContent=c.tag; }
+}
+function addPerformer(){
+  const name=document.getElementById('m-name').value.trim(), height=document.getElementById('m-height').value, weight=document.getElementById('m-weight').value, band=document.getElementById('m-band').value, cup=document.getElementById('m-cup').value, waist=document.getElementById('m-waist').value, hips=document.getElementById('m-hips').value, bust=document.getElementById('m-bust').value, errEl=document.getElementById('m-error'), errors=[];
+  if(!name)errors.push('Name required.'); if(!height||parseFloat(height)<140||parseFloat(height)>195)errors.push('Height 140–195 cm.'); if(!weight||parseFloat(weight)<35||parseFloat(weight)>150)errors.push('Weight 35–150 kg.'); if(!bust&&(!band||!cup))errors.push('Provide bust measurement or a complete bra size.'); if(!waist||parseFloat(waist)<18)errors.push('Valid waist needed.'); if(!hips||parseFloat(hips)<24)errors.push('Valid hips needed.'); if(hips&&waist&&parseFloat(hips)<=parseFloat(waist))errors.push('Hips must exceed waist.');
+  if(errors.length){ errEl.textContent=errors.join(' '); errEl.style.display='block'; return; }
+  const bra=`${band}${cup}`; const c=classify(height,weight,bra,bust,waist,hips);
+  const newRow={name,height_cm:height,weight_kg:weight,bra,bust_in:bust||'',waist_in:waist,hips_in:hips, _id:rows.length,_bustLevel:c.bustLevel,_bustTag:c.bustTag,_bustPct:c.bustPct,_hipLevel:c.hipLevel,_hipTag:c.hipTag,_hipPct:c.hipPct,_modifier:c.modifier,_heightTag:c.heightTag,_shape:c.shape,_tag:c.tag};
+  const ratio=computeHipRatio(newRow); newRow._hipRatio=ratio!==null?parseFloat(ratio.toFixed(5)):null;
+  rows.push(newRow); modifiedSet.add(newRow._id); closeAddModal(); applyFilters();
+}
+
+// ========== COMPARE (sin cambios) ==========
+function initCompareView(){ if(rows.length===0){ document.getElementById('cmp-no-data').style.display='block'; document.getElementById('cmp-main').style.display='none'; } else { document.getElementById('cmp-no-data').style.display='none'; document.getElementById('cmp-main').style.display='block'; } }
+function cmpFilter(){ const q=(document.getElementById('cmp-input').value||'').toLowerCase(); const drop=document.getElementById('cmp-dropdown'); const alreadyIds=new Set(cmpSelected.map(r=>r._id)); const matches=rows.filter(r=>r.name.toLowerCase().includes(q)&&!alreadyIds.has(r._id)).slice(0,40); drop.innerHTML=''; matches.forEach(p=>{ const d=document.createElement('div');d.className='cmp-drop-item'; d.innerHTML=`<span>${p.name}</span><span class="dtag">${p._tag||'—'}</span>`; d.onmousedown=()=>cmpAdd(p); drop.appendChild(d); }); drop.classList.toggle('open',matches.length>0&&q.length>0); }
+function cmpDropClose(){ document.getElementById('cmp-dropdown').classList.remove('open'); }
+function cmpAdd(p){ cmpSelected.push(p); document.getElementById('cmp-input').value=''; document.getElementById('cmp-dropdown').classList.remove('open'); renderCmpChips(); if(cmpSelected.length>=2) renderCompare(); }
+function cmpRemove(idx){ cmpSelected.splice(idx,1); if(radarHighlight===idx)radarHighlight=null; else if(radarHighlight>idx)radarHighlight--; renderCmpChips(); if(cmpSelected.length>=2) renderCompare(); else document.getElementById('cmp-result').style.display='none'; }
+function renderCmpChips(){ const wrap=document.getElementById('cmp-chips'); wrap.innerHTML=''; cmpSelected.forEach((p,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; const chip=document.createElement('div'); chip.className='cmp-chip'+(radarHighlight===i?' highlighted':''); chip.style.cssText=`color:${color};border-color:${color}40;background:${color}15;`; chip.innerHTML=`<span>${p.name}</span><span class="chip-x" onclick="cmpRemove(${i})">✕</span>`; chip.onclick=(e)=>{if(!e.target.classList.contains('chip-x')) toggleHighlight(i);}; wrap.appendChild(chip); }); document.getElementById('cmp-count-label').textContent=cmpSelected.length>0?`${cmpSelected.length} performer${cmpSelected.length>1?'s':''} selected`:''; }
+function toggleHighlight(idx){ radarHighlight=radarHighlight===idx?null:idx; renderCmpChips(); drawRadar(); }
+function renderCompare(){ document.getElementById('cmp-result').style.display='block'; drawRadar(); buildAttrBars(); buildAttrTable(); }
+const RADAR_AXES=['Bust','Hips','Waist\nDef.','Slimness','Height'];
+function getRadarVals(r){ const c=classify(r.height_cm,r.weight_kg,r.bra,r.bust_in,r.waist_in,r.hips_in); return [c.bustPct, c.hipPct, c.whrPct, Math.min(99,Math.max(1,100-Math.round(((c.bmi-15)/20)*100))), Math.min(99,Math.max(1,Math.round(((c.height-140)/55)*100)))]; }
+function drawRadar(){
+  const canvas=document.getElementById('radar-canvas'), ctx=canvas.getContext('2d'), W=canvas.width,H=canvas.height,cx=W/2,cy=H/2,r=W*0.36, n=RADAR_AXES.length;
+  ctx.clearRect(0,0,W,H); ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+  [20,40,60,80,100].forEach(ring=>{ ctx.beginPath(); for(let i=0;i<n;i++){ const ang=(i/n)*Math.PI*2-Math.PI/2; const rv=r*(ring/100); i===0?ctx.moveTo(cx+rv*Math.cos(ang),cy+rv*Math.sin(ang)):ctx.lineTo(cx+rv*Math.cos(ang),cy+rv*Math.sin(ang)); } ctx.closePath(); ctx.stroke(); });
+  for(let i=0;i<n;i++){ const ang=(i/n)*Math.PI*2-Math.PI/2; ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+r*Math.cos(ang),cy+r*Math.sin(ang)); ctx.stroke(); const lx=cx+(r+22)*Math.cos(ang),ly=cy+(r+22)*Math.sin(ang); ctx.fillStyle='rgba(136,136,153,0.9)'; ctx.font='10px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle'; RADAR_AXES[i].split('\n').forEach((line,li,arr)=>{ ctx.fillText(line,lx,ly+(li-(arr.length-1)/2)*13); }); }
+  function drawShape(vals,color,alpha,lineW){ ctx.beginPath(); for(let i=0;i<n;i++){ const ang=(i/n)*Math.PI*2-Math.PI/2; const rv=r*(vals[i]/100); i===0?ctx.moveTo(cx+rv*Math.cos(ang),cy+rv*Math.sin(ang)):ctx.lineTo(cx+rv*Math.cos(ang),cy+rv*Math.sin(ang)); } ctx.closePath(); ctx.fillStyle=color+Math.round(alpha*255).toString(16).padStart(2,'0'); ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=lineW; ctx.stroke(); if(lineW>1.5){ ctx.fillStyle=color; for(let i=0;i<n;i++){ const ang=(i/n)*Math.PI*2-Math.PI/2; const rv=r*(vals[i]/100); ctx.beginPath(); ctx.arc(cx+rv*Math.cos(ang),cy+rv*Math.sin(ang),3.5,0,Math.PI*2); ctx.fill(); } } }
+  cmpSelected.forEach((p,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; const vals=getRadarVals(p); const isHL=radarHighlight===i; const noHL=radarHighlight!==null&&!isHL; drawShape(vals,color,noHL?0.04:0.18,noHL?0.8:isHL?2.5:1.8); });
+  const legWrap=document.getElementById('radar-legend'); legWrap.innerHTML=''; cmpSelected.forEach((p,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; const item=document.createElement('div'); item.className='radar-leg-item'+(radarHighlight===i?' active':''); item.style.color=color; item.innerHTML=`<div class="radar-leg-dot" style="background:${color}"></div>${p.name}`; item.onclick=()=>toggleHighlight(i); legWrap.appendChild(item); });
+}
+function buildAttrBars(){
+  const wrap=document.getElementById('attr-bars'); wrap.innerHTML='';
+  const attrDefs=[{label:'Bust',getVal:c=>c.bustPct,getTag:c=>c.bustTag},{label:'Hips',getVal:c=>c.hipPct,getTag:c=>c.hipTag},{label:'Waist def.',getVal:c=>c.whrPct,getTag:c=>`WHR ${c.whr}`}];
+  attrDefs.forEach(attr=>{ const section=document.createElement('div'); section.style.cssText='margin-bottom:18px;'; section.innerHTML=`<div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">${attr.label}</div>`; cmpSelected.forEach((p,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; const c=classify(p.height_cm,p.weight_kg,p.bra,p.bust_in,p.waist_in,p.hips_in); const pct=attr.getVal(c),tag=attr.getTag(c); const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:5px;'; row.innerHTML=`<span style="font-size:0.72rem;color:${color};min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span><div style="flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden;"><div style="width:${pct}%;height:100%;border-radius:99px;background:${color};"></div></div><span style="font-size:0.68rem;color:var(--muted);min-width:28px;text-align:right">${pct}%</span><span style="font-size:0.7rem;color:var(--muted)">${tag}</span>`; section.appendChild(row); }); wrap.appendChild(section); });
+}
+function buildAttrTable(){
+  const thead=document.getElementById('attr-thead'), tbody=document.getElementById('attr-tbody'); thead.innerHTML=''; tbody.innerHTML='';
+  const htr=document.createElement('tr'); htr.innerHTML='<th>Attribute</th>'; cmpSelected.forEach((p,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; htr.innerHTML+=`<th style="color:${color}">${p.name}</th>`; }); htr.innerHTML+='<th>Best</th>'; thead.appendChild(htr);
+  const metrics=cmpSelected.map(p=>classify(p.height_cm,p.weight_kg,p.bra,p.bust_in,p.waist_in,p.hips_in));
+  const rowDefs=[
+    {label:'Height', vals:()=>cmpSelected.map(p=>parseFloat(p.height_cm)), fmt:v=>`${v}cm`, higher:'bigger'}, {label:'Weight', vals:()=>cmpSelected.map(p=>parseFloat(p.weight_kg)), fmt:v=>`${v}kg`, higher:'none'},
+    {label:'Bra', vals:()=>cmpSelected.map(p=>p.bra), fmt:v=>v, higher:'none'}, {label:'Bust tag', vals:()=>metrics.map(c=>c.bustPct), fmt:(v,i)=>metrics[i].bustTag, higher:'bigger'},
+    {label:'Bust %', vals:()=>metrics.map(c=>c.bustPct), fmt:v=>`${v}%`, higher:'bigger'}, {label:'Waist', vals:()=>cmpSelected.map(p=>parseFloat(p.waist_in)), fmt:v=>`${v}"`, higher:'smaller'},
+    {label:'Hips', vals:()=>cmpSelected.map(p=>parseFloat(p.hips_in)), fmt:v=>`${v}"`, higher:'bigger'}, {label:'Hips tag', vals:()=>metrics.map(c=>c.hipPct), fmt:(v,i)=>metrics[i].hipTag, higher:'bigger'},
+    {label:'Hips %', vals:()=>metrics.map(c=>c.hipPct), fmt:v=>`${v}%`, higher:'bigger'}, {label:'WHR', vals:()=>metrics.map(c=>c.whr), fmt:v=>v, higher:'smaller'},
+    {label:'BMI', vals:()=>metrics.map(c=>c.bmi), fmt:v=>v, higher:'none'}, {label:'Height Type', vals:()=>metrics.map(c=>c.heightTag||'—'),fmt:v=>v, higher:'none'},
+    {label:'Body Shape', vals:()=>metrics.map(c=>c.shape||'—'), fmt:v=>v, higher:'none'}, {label:'Modifier', vals:()=>metrics.map(c=>c.modifier||'—'), fmt:v=>v, higher:'none'},
+  ];
+  rowDefs.forEach(rd=>{ const numVals=rd.vals(); let winIdx=-1; if(rd.higher==='bigger')winIdx=numVals.indexOf(Math.max(...numVals.map(v=>typeof v==='number'?v:-Infinity))); if(rd.higher==='smaller')winIdx=numVals.indexOf(Math.min(...numVals.map(v=>typeof v==='number'?v:Infinity))); if(new Set(numVals.map(v=>String(v))).size===1)winIdx=-1; const tr=document.createElement('tr'); let cells=`<td>${rd.label}</td>`; numVals.forEach((v,i)=>{ const color=CMP_PALETTE[i%CMP_PALETTE.length]; const isWin=winIdx===i; const display=rd.fmt(v,i); cells+=`<td style="${isWin?`color:${color};font-weight:700`:''}">${display}</td>`; }); if(winIdx>=0){ const wcolor=CMP_PALETTE[winIdx%CMP_PALETTE.length]; const wname=cmpSelected[winIdx].name; cells+=`<td><span class="delta-chip" style="background:${wcolor}20;color:${wcolor}">${wname}</span></td>`; } else { cells+=`<td><span class="delta-chip" style="background:rgba(255,255,255,0.05);color:var(--muted)">Tied</span></td>`; } tr.innerHTML=cells; tbody.appendChild(tr); });
+}
+
+// ========== VISUALIZER (USA BANDA / UNDERBUST) ==========
+function drawGaussianSilhouette(canvasId, hCm, bandIn, waistIn, hipIn, fillColor, strokeColor, alpha=1.0) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    
+    const centerX = w / 2;
+    const mean = (bandIn + waistIn + hipIn) / 3;
+    
+    const zones = [
+        { center: 0.25, delta: bandIn - mean, sigma: 0.16 }, 
+        { center: 0.46, delta: waistIn - mean, sigma: 0.11 }, 
+        { center: 0.66, delta: hipIn - mean, sigma: 0.12 }
+    ];
+
+    const totalPx = (hCm / 200) * (h * 0.88); 
+    const topMargin = (h - totalPx) / 2;
+
+    const points = [];
+    const steps = 180;
+
+    for (let i = 0; i <= steps; i++) {
+        const yNorm = i / steps;
+        let offset = 0;
+        zones.forEach(z => {
+            offset += z.delta * Math.exp(-Math.pow((yNorm - z.center) / z.sigma, 2));
+        });
+        const radius = (mean + offset) * 2.2;
+        const x = centerX - radius;
+        const y = topMargin + (yNorm * totalPx);
+        points.push({x, y});
+    }
+
+    ctx.beginPath();
+    const topCutIdx = Math.round(0.15 * steps);
+    const startP = points[topCutIdx];
+    ctx.moveTo(startP.x, startP.y);
+    for (let i = topCutIdx + 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+    }
+    const feetP = points[points.length - 1];
+    ctx.lineTo(w - feetP.x, feetP.y);
+    for (let i = points.length - 2; i >= topCutIdx; i--) {
+        ctx.lineTo(w - points[i].x, points[i].y);
+    }
+    ctx.lineTo(startP.x, startP.y);
+    ctx.closePath();
+
+    const grad = ctx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, '#6d28d9'); 
+    grad.addColorStop(0.5, '#a78bfa'); 
+    grad.addColorStop(1, '#6d28d9');
+    
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor || '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+}
+
+function updateSimulation() {
+  const canvas = document.getElementById('sim-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const h = parseFloat(document.getElementById('sim-height').value);
+  const band = parseFloat(document.getElementById('sim-band').value);   // banda real
+  const waist = parseFloat(document.getElementById('sim-waist').value);
+  const hips = parseFloat(document.getElementById('sim-hips').value);
+  
+  document.getElementById('sim-height-val').textContent = h;
+  document.getElementById('sim-band-val').textContent = band.toFixed(1);
+  document.getElementById('sim-waist-val').textContent = waist.toFixed(1);
+  document.getElementById('sim-hips-val').textContent = hips.toFixed(1);
+  
+  // Para la clasificación estimamos un busto completo banda + 3" (copa C promedio)
+  const bustoEstimado = band + 3;
+  const braDummy = `${Math.round(band)}C`;
+  const weight = 55; // valor dummy
+  const c = classify(h, weight, braDummy, bustoEstimado, waist, hips);
+  
+  document.getElementById('sim-tags').innerHTML = 
+    `<span style="color:#c084fc">Bust (full):</span> ${bustoEstimado.toFixed(1)}" · ${c.bustTag} (${c.bustPct}%) &nbsp;|&nbsp; 
+     <span style="color:#34d399">Hips:</span> ${c.hipTag} (${c.hipPct}%) &nbsp;|&nbsp; 
+     <span style="color:#60a5fa">Height:</span> ${c.heightTag} &nbsp;|&nbsp; 
+     <span style="color:#f97316">Shape:</span> ${c.shape}<br>
+     <span style="color:#e2e2f0">TAG:</span> ${c.tag}`;
+     
+  drawGaussianSilhouette('sim-canvas', h, band, waist, hips, '#6d28d9', '#a78bfa');
+}
+
+function loadRandomSim(){
+  const h = 140 + Math.floor(Math.random()*60);
+  const band = 28 + Math.random()*20;        // banda 28-48
+  const waist = 18 + Math.random()*22;
+  const hips = Math.max(waist+2, 28 + Math.random()*25);
+  document.getElementById('sim-height').value = h;
+  document.getElementById('sim-band').value = band.toFixed(1);
+  document.getElementById('sim-waist').value = waist.toFixed(1);
+  document.getElementById('sim-hips').value = hips.toFixed(1);
+  updateSimulation();
+}
+
+function loadFromDatasetSim(){
+  if(rows.length===0) return alert('No dataset loaded.');
+  const r = rows[Math.floor(Math.random()*rows.length)];
+  document.getElementById('sim-height').value = r.height_cm;
+  
+  const parsed = parseBraFull(r.bra);
+  const band = parsed.band || 32;
+  document.getElementById('sim-band').value = band;
+  
+  document.getElementById('sim-waist').value = r.waist_in;
+  document.getElementById('sim-hips').value = r.hips_in;
+  updateSimulation();
+}
+
+// Overlay
+function overlaySearch(slot){
+  const q = document.getElementById(`overlay-search-${slot}`).value.toLowerCase();
+  const drop = document.getElementById(`overlay-dropdown-${slot}`);
+  const already = slot==='a' ? (overlaySelectedB?[overlaySelectedB._id]:[]) : (overlaySelectedA?[overlaySelectedA._id]:[]);
+  const matches = rows.filter(r=>r.name.toLowerCase().includes(q) && !already.includes(r._id)).slice(0,30);
+  drop.innerHTML = '';
+  matches.forEach(p=>{ const d=document.createElement('div'); d.className='overlay-item'; d.textContent=p.name; d.onmousedown=()=>overlaySelect(slot,p); drop.appendChild(d); });
+  drop.classList.toggle('open', matches.length>0 && q.length>0);
+  setTimeout(()=>{ document.addEventListener('click', function closeOverlay(){ drop.classList.remove('open'); document.removeEventListener('click', closeOverlay); }, {once:true}); }, 100);
+}
+
+function overlaySelect(slot, performer){
+  if(slot==='a'){ overlaySelectedA = performer; document.getElementById('overlay-search-a').value = performer.name; }
+  else { overlaySelectedB = performer; document.getElementById('overlay-search-b').value = performer.name; }
+  document.getElementById(`overlay-dropdown-${slot}`).classList.remove('open');
+  overlayHighlight = null;
+  updateOverlay();
+}
+
+function updateOverlay(){
+  const canvas = document.getElementById('overlay-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (!overlaySelectedA && !overlaySelectedB) {
+    document.getElementById('overlay-tags').innerHTML = '<span style="color:var(--muted)">Select two performers to compare.</span>';
+    drawGaussianSilhouette('overlay-canvas', 165, 32, 26, 38, '#6d28d9', '#a78bfa', 0.3);
+    return;
+  }
+  
+  function makePerformerTag(label, performer, color, slot) {
+    if (!performer) return '';
+    const isHighlighted = (overlayHighlight === slot);
+    const c = classify(performer.height_cm, performer.weight_kg, performer.bra, performer.bust_in, performer.waist_in, performer.hips_in);
+    return `<div style="color:${color}; font-weight:700; cursor:pointer;" onclick="setOverlayHighlight('${slot}')">
+      ${label}: ${performer.name} ${isHighlighted ? '★' : ''}
+    </div>
+    <div style="font-size:0.75rem; margin-bottom:12px;">${c.tag}</div>`;
+  }
+  
+  let tagsHTML = '';
+  if (overlaySelectedA) tagsHTML += makePerformerTag('A', overlaySelectedA, '#c084fc', 'a');
+  if (overlaySelectedB) tagsHTML += makePerformerTag('B', overlaySelectedB, '#34d399', 'b');
+  
+  let alphaA = 1.0, alphaB = 1.0;
+  if (overlaySelectedA && overlaySelectedB) {
+    if (overlayHighlight === 'a') { alphaA = 1.0; alphaB = 0.2; }
+    else if (overlayHighlight === 'b') { alphaA = 0.2; alphaB = 1.0; }
+    else { alphaA = 0.5; alphaB = 0.5; }
+  }
+  
+  // Dibujar usando las bandas reales de los performers
+  if (overlaySelectedA) {
+    const p = overlaySelectedA;
+    const parsed = parseBraFull(p.bra);
+    const bandA = parsed.band || 32;
+    const cA = classify(p.height_cm, p.weight_kg, p.bra, p.bust_in, p.waist_in, p.hips_in);
+    drawGaussianSilhouette('overlay-canvas', cA.height, bandA, cA.waist, cA.hips, '#c084fc', '#c084fc', alphaA);
+  }
+  if (overlaySelectedB) {
+    const p = overlaySelectedB;
+    const parsed = parseBraFull(p.bra);
+    const bandB = parsed.band || 32;
+    const cB = classify(p.height_cm, p.weight_kg, p.bra, p.bust_in, p.waist_in, p.hips_in);
+    drawGaussianSilhouette('overlay-canvas', cB.height, bandB, cB.waist, cB.hips, '#34d399', '#34d399', alphaB);
+  }
+  
+  document.getElementById('overlay-tags').innerHTML = tagsHTML;
+}
+
+function setOverlayHighlight(slot) {
+  overlayHighlight = slot;
+  updateOverlay();
+}
+
+function clearOverlay() {
+  overlaySelectedA = null;
+  overlaySelectedB = null;
+  overlayHighlight = null;
+  document.getElementById('overlay-search-a').value = '';
+  document.getElementById('overlay-search-b').value = '';
+  updateOverlay();
+}
+
+function initVisualizerView(){
+  updateSimulation();
+  updateOverlay();
+}
+
+// ========== INICIALIZACIÓN ==========
+window.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('add-modal').addEventListener('click',e=>{if(e.target===document.getElementById('add-modal')) closeAddModal();});
+  document.getElementById('dropzone').style.display='block';
+  document.getElementById('table-wrap').style.display='none';
+  document.getElementById('filterbar').style.display='none';
+  initFromEmbedded();
+});
+</script>
+</body>
+</html>
