@@ -20,4 +20,16 @@ Most body classifiers use absolute numbers or medical standards (like BMI) that 
 This is a **VibeCode** project—built through intuition, trial, and error. It is intended for metadata enthusiasts as an illustrative exercise. It does not account for bone structure, fat distribution, or medical reality.
 
 ## How to use
-Simply open `index.html` in any modern browser.
+Live Demo:
+The easiest way to explore the tool is through https://kensatli84-pixel.github.io/performerRelativeClassifier/.
+(Note: The live demo includes a sample set of records to demonstrate the classification logic and visualizer functionality).
+
+Local Use:
+
+Clone or download this repository.
+
+Open index.html in any modern web browser.
+
+Load the performers_classified.csv
+
+(Optional) You can replace performers_classified.csv with your own dataset following the same column structure.
